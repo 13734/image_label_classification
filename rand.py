@@ -12,9 +12,10 @@ tran_file = 'train.txt'
 
 test_list = []
 tran_list = []
-
+with open(all_file,"r",encoding="utf-8") as f:
     string = f.read()
-    list_all = string.split("\n")[:-1]
+    list_all = string.split("\n")[:-1] #delete space
+
 for i in range(len(list_all)):
     where = random.random() #???
     list_idx = random.randint(0,len(list_all)-1)

@@ -10,13 +10,9 @@ import torch
 import time
 import os
 import shutil
-from torch.cuda.amp import autocast 
 import json
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-
-
 
 
 from tensorboardX import SummaryWriter
@@ -134,28 +130,23 @@ def train(train_loader, model, criterion, optimizer, epoch, writer):
     end = time.time()
     avg_meter = AverageMeter2()
 
-    
-
     for i, (input, target) in enumerate(train_loader):
-       
         input = input.cuda()
         target = target.cuda(non_blocking=True) #np.array?
         #forward
-        
-        with autocast():
-            output = model(input)
+        output = model(input)
 
-            optimizer.zero_grad() #added
+        optimizer.zero_grad() #added
 
-            loss = criterion(output, target)
+        loss = criterion(output, target)
         #loss = F.multilabel_soft_margin_loss(output,target)
-        
+
         #back and update
         loss.backward()
         avg_meter.add({"loss":loss.item()})
         optimizer.step()
 
-        
+
         # measure accuracy and record loss
         #[prec1, prec5], class_to = accuracy2(output, target, topk=(1, 2))
 
@@ -163,18 +154,15 @@ def train(train_loader, model, criterion, optimizer, epoch, writer):
         prec2, recall2 = calculate_acuracy_mode_one(output, target, rate=0.35)
 
         losses.update(loss.item(), input.size(0))
-        #top1_recall.update(recall1, input.size(0))
-        top1_recall.update(prec1, input.size(0))
+        top1_recall.update(recall1, input.size(0))
         top2_recall.update(recall2, input.size(0))
         top1_prec.update(prec1, input.size(0))
         top2_prec.update(prec2, input.size(0))
         # measure elapsed time
-        
-        time_check5 = time.time()
-        losses.update(loss.item(), input.size(0))
         batch_time.update(time.time() - end)
-        end = time.time()
         
+        losses.update(loss.item(), input.size(0))
+        end = time.time()
         if i % 10 == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -186,7 +174,7 @@ def train(train_loader, model, criterion, optimizer, epoch, writer):
                 data_time=data_time, loss=losses, top1_recall=top1_recall, top2_recall=top2_recall))
     scheduler.step()
     writer.add_scalar('loss/train_loss', losses.val, global_step=epoch)
-   
+
 
 def validate(val_loader, model, criterion, epoch, writer, phase="VAL"):
     """
@@ -213,9 +201,8 @@ def validate(val_loader, model, criterion, epoch, writer, phase="VAL"):
             input = input.cuda()
             target = target.cuda()
             # compute output
-            with autocast():
-                output = model(input)
-                loss = criterion(output, target)
+            output = model(input)
+            loss = criterion(output, target)
             #loss = F.multilabel_soft_margin_loss(output,target)
 
             # measure accuracy and record loss
@@ -226,8 +213,7 @@ def validate(val_loader, model, criterion, epoch, writer, phase="VAL"):
             prec2, recall2 = calculate_acuracy_mode_one(output, target, rate=0.35)
 
             losses.update(loss.item(), input.size(0))
-            #top1_recall.update(recall1, input.size(0))
-            top1_recall.update(prec1, input.size(0))
+            top1_recall.update(recall1, input.size(0))
             top2_recall.update(recall2, input.size(0))
             top1_prec.update(prec1, input.size(0))
             top2_prec.update(prec2, input.size(0))
@@ -310,14 +296,12 @@ if __name__ == "__main__":
     train_json = json.loads(str_json)
     num_classes = train_json["num_labels"]
     USEBEST =train_json["use_best"]
-    batch_size = train_json["batch_size"]
-    epochs =train_json["epochs"] 
     # -------------------------------------------- step 1/4 : 加载数据 ---------------------------
     train_dir_list = 'train.txt'
     valid_dir_list = 'val.txt'
-    #batch_size = 256
-    #epochs =40 
-    #num_classes = 1000
+    batch_size = 256
+    epochs = 80
+    num_classes = 1000
     train_data = Dataset_Loader(train_dir_list, train_flag=True,num_classes=num_classes)
     valid_data = Dataset_Loader(valid_dir_list, train_flag=False,num_classes=num_classes)
     train_loader = DataLoader(dataset=train_data, num_workers=8, pin_memory=True, batch_size=batch_size, shuffle=True)
@@ -327,20 +311,20 @@ if __name__ == "__main__":
     valid_data_size = len(valid_data)
     print('验证集数量：%d' % valid_data_size)
     # ------------------------------------ step 2/4 : 定义网络 ------------------------------------
-    #model = models.resnet50(pretrained=True)
+    #model = models.resnet18(pretrained=True)
 
-    model = models.resnet50(weights = models.ResNet50_Weights.DEFAULT)
-    fc_inputs = model.fc.in_features # 2048 |50 
+    model = models.resnet18(weights = models.ResNet18_Weights.DEFAULT)
+    fc_inputs = model.fc.in_features # 2048
     model.fc = nn.Linear(fc_inputs, num_classes)
     if USEBEST: #加载既有模型
         print("load from local")
-        checkpoint = torch.load('model_best_checkpoint_resnet50.pth.tar')
+        checkpoint = torch.load('model_best_checkpoint_resnet18.pth.tar')
         model.load_state_dict(checkpoint['state_dict'])
     model = model.cuda()
 
 
     # ------------------------------------ step 3/4 : 定义损失函数和优化器等 -------------------------
-    lr_init = 0.00022
+    lr_init = 0.0001
     lr_stepsize = 20
     weight_decay = 0.001
     #criterion = F.multilabel_soft_margin_loss().cuda()
@@ -348,7 +332,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=lr_init, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_stepsize, gamma=0.1)
 
-    writer = SummaryWriter('runs/resnet50')
+    writer = SummaryWriter('runs/resnet18')
     # ------------------------------------ step 4/4 : 训练 -----------------------------------------
     best_prec0 = 0
     for epoch in range(epochs):
@@ -356,15 +340,15 @@ if __name__ == "__main__":
         train(train_loader, model, criterion, optimizer, epoch, writer)
         # 在验证集上测试效果
         valid_prec1, valid_prec5 = validate(valid_loader, model, criterion, epoch, writer, phase="VAL")
-        valid_prec0 =valid_prec1  + valid_prec5 
+        valid_prec0 =valid_prec1 *0.66 + valid_prec5 *0.33
         is_best = valid_prec0 > best_prec0
         best_prec0 = max(valid_prec0, best_prec0)
         save_checkpoint({
             'epoch': epoch + 1,
-            'arch': 'resnet50',
+            'arch': 'resnet18',
             'state_dict': model.state_dict(),
             'best_prec1': best_prec0,
             'optimizer': optimizer.state_dict(),
         }, is_best,
-            filename='checkpoint_resnet50.pth.tar')
+            filename='checkpoint_resnet18.pth.tar')
     writer.close()

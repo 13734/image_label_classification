@@ -25,10 +25,7 @@ def softmax(x):
     return softmax_x
 
 
-"""
-with open('dir_label.txt', 'r', encoding='utf-8') as f:
-    labels = f.readlines()
-    labels = list(map(lambda x: x.strip().split('\t'), labels))"""
+
 with open('tags_all.txt', 'r', encoding='utf-8') as f:
     tags = f.readlines()
     tags = [ti.strip() for ti in tags]
@@ -68,21 +65,8 @@ if __name__ == "__main__":
         for tag in tags:
             if res_dict[tag] > treshold:
                 res_dict2[tag] = res_dict[tag]
-        """
-        res_list = [0] * num_classes
-        res_list_dic = dict()
-        for i, tag in range(num_classes):
-            if pred[i] > treshold:
-                res_list_dic[str(i)]  = pred[i]
-"""
+
         plt.imshow(src)
         print('预测结果：', res_dict2)
         plt.show()
 
-        """
-        score = softmax(pred)
-        pred_id = np.argmax(score)
-        plt.imshow(src)
-        print('预测结果：', labels[pred_id][0])
-        plt.show()
-        """
